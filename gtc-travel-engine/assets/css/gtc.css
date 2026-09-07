@@ -1,0 +1,1036 @@
+/**
+ * GTC Travel Engine — front end.
+ *
+ * Scoped under .gtc so it composes with whatever theme the managed WordPress
+ * install already runs, rather than fighting it.
+ */
+
+.gtc {
+	--gtc-ink: #10212b;
+	--gtc-ink-soft: #4a5c67;
+	--gtc-line: #dde5e9;
+	--gtc-surface: #ffffff;
+	--gtc-canvas: #f4f7f8;
+	--gtc-accent: #0f6b6b;
+	--gtc-accent-dark: #0a5252;
+	--gtc-accent-soft: #e4f1ef;
+	--gtc-warn: #9a4b12;
+	--gtc-warn-soft: #fdf0e4;
+	--gtc-good: #1c6b3c;
+	--gtc-good-soft: #e6f3ea;
+	--gtc-danger: #a32020;
+	--gtc-radius: 10px;
+	--gtc-shadow: 0 1px 2px rgba( 16, 33, 43, .06 ), 0 8px 24px -12px rgba( 16, 33, 43, .18 );
+
+	color: var( --gtc-ink );
+	font-size: 16px;
+	line-height: 1.5;
+	-webkit-font-smoothing: antialiased;
+}
+
+.gtc *,
+.gtc *::before,
+.gtc *::after {
+	box-sizing: border-box;
+}
+
+.gtc button,
+.gtc input,
+.gtc select,
+.gtc textarea {
+	font: inherit;
+	color: inherit;
+}
+
+/* The engine needs more horizontal room than a typical blog content column.
+   These are max-widths, not fixed widths, so a narrow theme still gets a
+   sensible layout — but a theme that hands us a full-width slot gets a
+   comparison table wide enough to actually compare in. */
+.gtc-app,
+.gtc-checkout {
+	max-width: 1120px;
+	margin-inline: auto;
+}
+
+/* ------------------------------------------------------------- search bar */
+
+.gtc-searchbar {
+	background: var( --gtc-surface );
+	border: 1px solid var( --gtc-line );
+	border-radius: var( --gtc-radius );
+	box-shadow: var( --gtc-shadow );
+	overflow: hidden;
+}
+
+.gtc-tabs {
+	display: flex;
+	gap: 2px;
+	overflow-x: auto;
+	background: var( --gtc-canvas );
+	border-bottom: 1px solid var( --gtc-line );
+	padding: 6px 6px 0;
+	scrollbar-width: thin;
+}
+
+.gtc-tab {
+	appearance: none;
+	background: transparent;
+	border: 0;
+	border-radius: 8px 8px 0 0;
+	padding: 10px 16px;
+	font-size: 14px;
+	font-weight: 500;
+	color: var( --gtc-ink-soft );
+	white-space: nowrap;
+	cursor: pointer;
+	position: relative;
+}
+
+.gtc-tab:hover:not( .is-disabled ) {
+	color: var( --gtc-ink );
+}
+
+.gtc-tab.is-active {
+	background: var( --gtc-surface );
+	color: var( --gtc-ink );
+	box-shadow: 0 -1px 0 var( --gtc-line ) inset;
+}
+
+.gtc-tab.is-active::after {
+	content: "";
+	position: absolute;
+	inset: auto 12px -1px 12px;
+	height: 2px;
+	background: var( --gtc-accent );
+}
+
+.gtc-tab.is-disabled {
+	opacity: .38;
+	cursor: not-allowed;
+}
+
+.gtc-fields {
+	display: grid;
+	grid-template-columns: 2fr 1fr 1fr .6fr .6fr .6fr auto;
+	gap: 12px;
+	padding: 16px;
+	align-items: end;
+}
+
+/* Container queries would be ideal here, but the bar has to behave inside a
+   theme's constrained content column as well as full width, and viewport
+   width says nothing about how much room the theme actually gave us. Falling
+   back to two columns early is the safe read: cramped is worse than stacked. */
+@media ( max-width: 1180px ) {
+	.gtc-fields {
+		grid-template-columns: repeat( 3, minmax( 0, 1fr ) );
+	}
+	.gtc-field--wide {
+		grid-column: 1 / -1;
+	}
+	.gtc-search-btn {
+		grid-column: 1 / -1;
+	}
+}
+
+@media ( max-width: 640px ) {
+	.gtc-fields {
+		grid-template-columns: repeat( 2, minmax( 0, 1fr ) );
+	}
+}
+
+.gtc-field {
+	display: flex;
+	flex-direction: column;
+	gap: 5px;
+	min-width: 0;
+}
+
+.gtc-field__label {
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: .02em;
+	text-transform: uppercase;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-field input,
+.gtc-field select,
+.gtc-field textarea {
+	width: 100%;
+	padding: 10px 12px;
+	border: 1px solid var( --gtc-line );
+	border-radius: 8px;
+	background: var( --gtc-surface );
+	transition: border-color .15s, box-shadow .15s;
+}
+
+.gtc-field input:focus,
+.gtc-field select:focus,
+.gtc-field textarea:focus {
+	outline: 0;
+	border-color: var( --gtc-accent );
+	box-shadow: 0 0 0 3px var( --gtc-accent-soft );
+}
+
+/* ---------------------------------------------------------------- buttons */
+
+.gtc-btn {
+	appearance: none;
+	border: 1px solid transparent;
+	border-radius: 8px;
+	padding: 11px 18px;
+	font-size: 15px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: background-color .15s, border-color .15s, transform .05s;
+	white-space: nowrap;
+}
+
+.gtc-btn:active {
+	transform: translateY( 1px );
+}
+
+.gtc-btn:disabled {
+	opacity: .55;
+	cursor: not-allowed;
+}
+
+.gtc-btn--primary {
+	background: var( --gtc-accent );
+	color: #fff;
+}
+
+.gtc-btn--primary:hover:not( :disabled ) {
+	background: var( --gtc-accent-dark );
+}
+
+.gtc-btn--large {
+	width: 100%;
+	padding: 15px 20px;
+	font-size: 17px;
+}
+
+.gtc-btn--select {
+	background: var( --gtc-surface );
+	border-color: var( --gtc-accent );
+	color: var( --gtc-accent );
+	padding: 8px 18px;
+	font-size: 14px;
+}
+
+.gtc-btn--select:hover:not( :disabled ) {
+	background: var( --gtc-accent );
+	color: #fff;
+}
+
+/* ---------------------------------------------------------------- results */
+
+.gtc-results {
+	margin-top: 28px;
+}
+
+.gtc-results__head {
+	display: flex;
+	justify-content: space-between;
+	align-items: flex-end;
+	gap: 20px;
+	flex-wrap: wrap;
+	margin-bottom: 12px;
+}
+
+.gtc-results__title {
+	margin: 0;
+	font-size: 20px;
+	line-height: 1.3;
+}
+
+.gtc-results__meta {
+	margin: 4px 0 0;
+	font-size: 14px;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-field--sort {
+	min-width: 200px;
+}
+
+.gtc-suppliers {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 18px;
+}
+
+.gtc-chip {
+	display: inline-flex;
+	align-items: baseline;
+	gap: 6px;
+	padding: 5px 10px;
+	border-radius: 999px;
+	background: var( --gtc-accent-soft );
+	border: 1px solid transparent;
+	font-size: 12px;
+	color: var( --gtc-accent-dark );
+}
+
+.gtc-chip strong {
+	font-weight: 600;
+}
+
+.gtc-chip--cached {
+	background: var( --gtc-canvas );
+	border-color: var( --gtc-line );
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-chip--failed {
+	background: var( --gtc-warn-soft );
+	color: var( --gtc-warn );
+}
+
+.gtc-list {
+	display: flex;
+	flex-direction: column;
+	gap: 16px;
+}
+
+/* ------------------------------------------------------------------ cards */
+
+.gtc-card {
+	background: var( --gtc-surface );
+	border: 1px solid var( --gtc-line );
+	border-radius: var( --gtc-radius );
+	padding: 18px 20px;
+	box-shadow: var( --gtc-shadow );
+}
+
+.gtc-card__head {
+	display: flex;
+	justify-content: space-between;
+	gap: 24px;
+	align-items: flex-start;
+}
+
+.gtc-card__identity {
+	min-width: 0;
+}
+
+.gtc-card__name {
+	margin: 0;
+	font-size: 18px;
+	line-height: 1.3;
+}
+
+.gtc-card__line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 10px;
+	margin: 5px 0 0;
+	font-size: 13px;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-card__stars {
+	color: #b8860b;
+	letter-spacing: 1px;
+}
+
+.gtc-score {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	margin-top: 8px;
+}
+
+.gtc-score__value {
+	background: var( --gtc-accent );
+	color: #fff;
+	border-radius: 6px 6px 6px 2px;
+	padding: 3px 8px;
+	font-weight: 700;
+	font-size: 13px;
+	font-variant-numeric: tabular-nums;
+}
+
+.gtc-score__count {
+	font-size: 12px;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-card__price {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 1px;
+	text-align: right;
+	flex-shrink: 0;
+}
+
+.gtc-card__from,
+.gtc-card__unit {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-card__amount {
+	font-size: 26px;
+	font-weight: 700;
+	line-height: 1.15;
+	font-variant-numeric: tabular-nums;
+}
+
+.gtc-card__extra {
+	font-size: 11px;
+	color: var( --gtc-ink-soft );
+	max-width: 190px;
+}
+
+.gtc-badge {
+	display: inline-block;
+	padding: 3px 8px;
+	border-radius: 999px;
+	font-size: 11px;
+	font-weight: 700;
+	letter-spacing: .02em;
+	margin-bottom: 4px;
+}
+
+.gtc-badge--save {
+	background: var( --gtc-good-soft );
+	color: var( --gtc-good );
+}
+
+.gtc-amenities {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	list-style: none;
+	margin: 14px 0 0;
+	padding: 0;
+}
+
+.gtc-amenities li {
+	font-size: 12px;
+	color: var( --gtc-ink-soft );
+	background: var( --gtc-canvas );
+	border-radius: 6px;
+	padding: 3px 8px;
+}
+
+/* -------------------------------------------------------- supplier compare */
+
+.gtc-compare {
+	margin-top: 16px;
+	border-top: 1px solid var( --gtc-line );
+	padding-top: 12px;
+}
+
+.gtc-compare__head {
+	margin: 0 0 8px;
+	font-size: 12px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: var( --gtc-accent-dark );
+}
+
+.gtc-offer {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 16px;
+	padding: 10px 12px;
+	border-radius: 8px;
+	/* The price and Select button stay on the rate's own line. Letting the row
+	   wrap pushed them onto a line of their own, which reads as if they belong
+	   to the rate below. */
+	flex-wrap: nowrap;
+}
+
+.gtc-offer__detail {
+	flex: 1 1 auto;
+}
+
+.gtc-offer__action {
+	flex: 0 0 auto;
+}
+
+@media ( max-width: 560px ) {
+	.gtc-offer {
+		flex-wrap: wrap;
+	}
+}
+
+.gtc-offer + .gtc-offer {
+	margin-top: 4px;
+}
+
+.gtc-offer.is-best {
+	background: var( --gtc-accent-soft );
+}
+
+.gtc-offer__detail {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+}
+
+.gtc-offer__detail > * {
+	min-width: 0;
+}
+
+.gtc-offer__supplier {
+	font-size: 11px;
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: var( --gtc-ink-soft );
+	background: var( --gtc-surface );
+	border: 1px solid var( --gtc-line );
+	border-radius: 5px;
+	padding: 2px 7px;
+}
+
+.gtc-offer__room {
+	font-size: 14px;
+}
+
+.gtc-offer__tags {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 5px;
+}
+
+.gtc-tag {
+	font-size: 11px;
+	border-radius: 5px;
+	padding: 2px 7px;
+	text-transform: lowercase;
+}
+
+.gtc-tag--good {
+	background: var( --gtc-good-soft );
+	color: var( --gtc-good );
+}
+
+.gtc-tag--warn {
+	background: var( --gtc-warn-soft );
+	color: var( --gtc-warn );
+}
+
+.gtc-tag--urgent {
+	background: #fde8e8;
+	color: var( --gtc-danger );
+	font-weight: 600;
+}
+
+.gtc-offer__action {
+	display: flex;
+	align-items: center;
+	gap: 14px;
+	margin-left: auto;
+}
+
+.gtc-offer__price {
+	font-size: 17px;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------- states & pager */
+
+.gtc-state {
+	margin-top: 24px;
+	padding: 16px 18px;
+	border-radius: var( --gtc-radius );
+	background: var( --gtc-canvas );
+	border: 1px solid var( --gtc-line );
+	font-size: 15px;
+}
+
+.gtc-state--busy::before {
+	content: "";
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	margin-right: 10px;
+	border: 2px solid var( --gtc-accent );
+	border-right-color: transparent;
+	border-radius: 50%;
+	vertical-align: -1px;
+	animation: gtc-spin .7s linear infinite;
+}
+
+@keyframes gtc-spin {
+	to { transform: rotate( 360deg ); }
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.gtc-state--busy::before { animation-duration: 3s; }
+}
+
+.gtc-state--error {
+	background: var( --gtc-warn-soft );
+	border-color: #f0d5bb;
+	color: var( --gtc-warn );
+}
+
+.gtc-notice {
+	padding: 14px 16px;
+	border-radius: var( --gtc-radius );
+	background: var( --gtc-warn-soft );
+	border: 1px solid #f0d5bb;
+	color: var( --gtc-warn );
+	font-size: 14px;
+}
+
+.gtc-notice--empty {
+	background: var( --gtc-canvas );
+	border-color: var( --gtc-line );
+	color: var( --gtc-ink-soft );
+	text-align: center;
+	padding: 32px 16px;
+}
+
+.gtc-pager {
+	display: flex;
+	gap: 6px;
+	justify-content: center;
+	margin-top: 24px;
+}
+
+.gtc-page {
+	min-width: 38px;
+	padding: 7px 10px;
+	border: 1px solid var( --gtc-line );
+	background: var( --gtc-surface );
+	border-radius: 7px;
+	cursor: pointer;
+	font-variant-numeric: tabular-nums;
+}
+
+.gtc-page.is-current {
+	background: var( --gtc-accent );
+	border-color: var( --gtc-accent );
+	color: #fff;
+	font-weight: 700;
+}
+
+/* --------------------------------------------------------------- checkout */
+
+.gtc-checkout {
+	display: grid;
+	grid-template-columns: minmax( 0, 1.6fr ) minmax( 300px, .9fr );
+	gap: 28px;
+	align-items: start;
+}
+
+@media ( max-width: 880px ) {
+	.gtc-checkout {
+		grid-template-columns: 1fr;
+	}
+	.gtc-summary {
+		order: -1;
+	}
+}
+
+.gtc-steps {
+	display: flex;
+	gap: 10px;
+	list-style: none;
+	margin: 0 0 20px;
+	padding: 0;
+	font-size: 13px;
+	color: var( --gtc-ink-soft );
+	flex-wrap: wrap;
+}
+
+.gtc-steps li {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.gtc-steps li + li::before {
+	content: "→";
+	color: var( --gtc-line );
+}
+
+.gtc-steps .is-done {
+	color: var( --gtc-good );
+}
+
+.gtc-steps .is-current {
+	color: var( --gtc-ink );
+	font-weight: 700;
+}
+
+.gtc-revalidated {
+	display: flex;
+	gap: 12px;
+	align-items: flex-start;
+	background: var( --gtc-good-soft );
+	border: 1px solid #c9e3d2;
+	border-radius: var( --gtc-radius );
+	padding: 14px 16px;
+	margin-bottom: 22px;
+}
+
+.gtc-revalidated__tick {
+	color: var( --gtc-good );
+	font-weight: 700;
+	font-size: 18px;
+	line-height: 1.2;
+}
+
+.gtc-revalidated strong,
+.gtc-revalidated span {
+	display: block;
+}
+
+.gtc-revalidated span {
+	font-size: 13px;
+	color: var( --gtc-ink-soft );
+	margin-top: 2px;
+}
+
+.gtc-fieldset {
+	border: 1px solid var( --gtc-line );
+	border-radius: var( --gtc-radius );
+	padding: 18px 20px 20px;
+	margin: 0 0 18px;
+	background: var( --gtc-surface );
+}
+
+.gtc-fieldset legend {
+	padding: 0 8px;
+	font-size: 14px;
+	font-weight: 700;
+}
+
+.gtc-fieldset__hint {
+	margin: 0 0 14px;
+	font-size: 13px;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-grid {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 170px, 1fr ) );
+	gap: 14px;
+	margin-bottom: 14px;
+}
+
+.gtc-grid:last-child {
+	margin-bottom: 0;
+}
+
+.gtc-sandbox-banner {
+	background: var( --gtc-warn-soft );
+	border: 1px dashed #e0b98f;
+	border-radius: 8px;
+	padding: 12px 14px;
+	margin-bottom: 16px;
+	font-size: 13px;
+	color: var( --gtc-warn );
+}
+
+.gtc-sandbox-banner strong,
+.gtc-sandbox-banner span {
+	display: block;
+}
+
+.gtc-consent {
+	display: flex;
+	gap: 10px;
+	align-items: flex-start;
+	font-size: 14px;
+	margin-bottom: 18px;
+}
+
+.gtc-consent input {
+	margin-top: 3px;
+}
+
+.gtc-checkout__error {
+	background: #fde8e8;
+	border: 1px solid #f3c4c4;
+	color: var( --gtc-danger );
+	border-radius: 8px;
+	padding: 13px 15px;
+	margin-bottom: 16px;
+	font-size: 14px;
+}
+
+.gtc-checkout__reassurance {
+	margin: 12px 0 0;
+	font-size: 13px;
+	color: var( --gtc-ink-soft );
+	text-align: center;
+}
+
+.gtc-pricechange {
+	background: var( --gtc-warn-soft );
+	border: 1px solid #e0b98f;
+	border-radius: var( --gtc-radius );
+	padding: 16px 18px;
+	margin-bottom: 20px;
+}
+
+.gtc-pricechange p {
+	margin: 6px 0 12px;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- summary */
+
+.gtc-summary__card {
+	background: var( --gtc-surface );
+	border: 1px solid var( --gtc-line );
+	border-radius: var( --gtc-radius );
+	padding: 20px;
+	box-shadow: var( --gtc-shadow );
+	position: sticky;
+	top: 24px;
+}
+
+.gtc-summary__title {
+	margin: 0;
+	font-size: 18px;
+	line-height: 1.3;
+}
+
+.gtc-summary__address {
+	margin: 4px 0 16px;
+	font-size: 13px;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-summary__facts {
+	margin: 0 0 16px;
+	font-size: 14px;
+}
+
+.gtc-summary__facts > div {
+	display: flex;
+	justify-content: space-between;
+	gap: 16px;
+	padding: 7px 0;
+	border-bottom: 1px solid var( --gtc-line );
+}
+
+.gtc-summary__facts dt {
+	color: var( --gtc-ink-soft );
+	flex-shrink: 0;
+}
+
+.gtc-summary__facts dd {
+	margin: 0;
+	text-align: right;
+	font-weight: 500;
+}
+
+.gtc-summary__inclusions {
+	list-style: none;
+	margin: 0 0 16px;
+	padding: 0;
+	font-size: 13px;
+}
+
+.gtc-summary__inclusions li {
+	position: relative;
+	padding-left: 20px;
+	margin-bottom: 4px;
+	color: var( --gtc-good );
+}
+
+.gtc-summary__inclusions li::before {
+	content: "✓";
+	position: absolute;
+	left: 2px;
+	font-weight: 700;
+}
+
+.gtc-policy {
+	border-radius: 8px;
+	padding: 11px 13px;
+	margin-bottom: 16px;
+	font-size: 13px;
+}
+
+.gtc-policy strong {
+	display: block;
+	margin-bottom: 2px;
+}
+
+.gtc-policy.is-refundable {
+	background: var( --gtc-good-soft );
+	color: var( --gtc-good );
+}
+
+.gtc-policy.is-nonref {
+	background: var( --gtc-warn-soft );
+	color: var( --gtc-warn );
+}
+
+.gtc-breakdown {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 14px;
+}
+
+.gtc-breakdown th,
+.gtc-breakdown td {
+	padding: 7px 0;
+	text-align: left;
+	font-weight: 400;
+	vertical-align: top;
+}
+
+.gtc-breakdown td {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
+.gtc-breakdown th {
+	color: var( --gtc-ink-soft );
+	padding-right: 12px;
+}
+
+.gtc-breakdown__total th,
+.gtc-breakdown__total td {
+	border-top: 2px solid var( --gtc-ink );
+	padding-top: 10px;
+	font-weight: 700;
+	font-size: 17px;
+	color: var( --gtc-ink );
+}
+
+.gtc-breakdown__later th,
+.gtc-breakdown__later td {
+	font-size: 12px;
+	color: var( --gtc-ink-soft );
+	padding: 3px 0;
+}
+
+.gtc-breakdown__later--total th,
+.gtc-breakdown__later--total td {
+	font-weight: 700;
+	border-top: 1px solid var( --gtc-line );
+	padding-top: 7px;
+}
+
+.gtc-summary__ref {
+	margin: 16px 0 0;
+	font-size: 12px;
+	color: var( --gtc-ink-soft );
+	text-align: center;
+}
+
+.gtc-summary__ref code,
+.gtc-refs__value {
+	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+	letter-spacing: .06em;
+}
+
+/* ----------------------------------------------------------- confirmation */
+
+.gtc-confirmation {
+	max-width: 720px;
+	margin: 0 auto;
+}
+
+.gtc-confirmation__hero {
+	text-align: center;
+	background: var( --gtc-good-soft );
+	border: 1px solid #c9e3d2;
+	border-radius: var( --gtc-radius );
+	padding: 32px 24px;
+}
+
+.gtc-confirmation__hero--warn {
+	background: var( --gtc-warn-soft );
+	border-color: #e0b98f;
+}
+
+.gtc-confirmation__tick {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 48px;
+	height: 48px;
+	border-radius: 50%;
+	background: var( --gtc-good );
+	color: #fff;
+	font-size: 26px;
+	margin-bottom: 12px;
+}
+
+.gtc-confirmation__hero h1 {
+	margin: 0 0 6px;
+	font-size: 24px;
+}
+
+.gtc-confirmation__hero p {
+	margin: 0;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-refs {
+	display: flex;
+	gap: 14px;
+	flex-wrap: wrap;
+	margin: 18px 0;
+}
+
+.gtc-refs > div {
+	flex: 1 1 200px;
+	background: var( --gtc-surface );
+	border: 1px solid var( --gtc-line );
+	border-radius: var( --gtc-radius );
+	padding: 14px 16px;
+	text-align: center;
+}
+
+.gtc-refs__label {
+	display: block;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: var( --gtc-ink-soft );
+	margin-bottom: 5px;
+}
+
+.gtc-refs__value {
+	font-size: 17px;
+	font-weight: 700;
+}
+
+.gtc-confirmation__body {
+	background: var( --gtc-surface );
+	border: 1px solid var( --gtc-line );
+	border-radius: var( --gtc-radius );
+	padding: 22px 24px;
+}
+
+.gtc-confirmation__body h2 {
+	margin: 0;
+	font-size: 19px;
+}
+
+.screen-reader-text {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect( 1px, 1px, 1px, 1px );
+	white-space: nowrap;
+}

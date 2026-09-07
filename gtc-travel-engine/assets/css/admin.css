@@ -1,0 +1,115 @@
+/**
+ * GTC Travel Engine — admin.
+ */
+
+.gtc-admin__stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 14px;
+	margin: 18px 0 24px;
+}
+
+.gtc-admin__stat {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	padding: 16px 22px;
+	min-width: 150px;
+}
+
+.gtc-admin__stat-value {
+	display: block;
+	font-size: 30px;
+	font-weight: 600;
+	line-height: 1.1;
+	font-variant-numeric: tabular-nums;
+}
+
+.gtc-admin__stat-label {
+	display: block;
+	margin-top: 3px;
+	font-size: 13px;
+	color: #646970;
+}
+
+.gtc-admin__codes code {
+	background: #f0f0f1;
+	padding: 2px 6px;
+	border-radius: 4px;
+}
+
+.gtc-pill {
+	display: inline-block;
+	padding: 2px 9px;
+	border-radius: 999px;
+	font-size: 12px;
+	font-weight: 600;
+	background: #f0f0f1;
+	color: #646970;
+	vertical-align: middle;
+}
+
+.gtc-pill--good {
+	background: #e6f3ea;
+	color: #1c6b3c;
+}
+
+.gtc-pill--warn {
+	background: #fdf0e4;
+	color: #9a4b12;
+}
+
+.gtc-pill--bad {
+	background: #fde8e8;
+	color: #a32020;
+}
+
+.gtc-provider-card {
+	background: #fff;
+	border: 1px solid #dcdcde;
+	border-radius: 8px;
+	padding: 16px 18px;
+	margin-bottom: 14px;
+	max-width: 900px;
+}
+
+.gtc-provider-card__head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 14px;
+}
+
+.gtc-provider-card__toggle {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	font-size: 15px;
+}
+
+.gtc-provider-card__meta {
+	margin: 5px 0 0;
+	font-size: 12px;
+	color: #646970;
+}
+
+.gtc-provider-card__fields {
+	display: grid;
+	grid-template-columns: repeat( auto-fit, minmax( 220px, 1fr ) );
+	gap: 12px;
+	margin-top: 14px;
+	padding-top: 14px;
+	border-top: 1px solid #f0f0f1;
+}
+
+.gtc-provider-card__fields label {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.gtc-provider-card__fields span {
+	font-size: 12px;
+	text-transform: capitalize;
+	color: #646970;
+}
