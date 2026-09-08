@@ -74,6 +74,10 @@ echo "\n=== GTC engine self-check ===\n\n";
 gtc()->settings()->update(
 	array(
 		'enabled_providers' => array( 'sandbox_alpha', 'sandbox_beta' ),
+		// Most of this file exercises the merchant path — commission, Look,
+		// payment, supplier book. Referral mode is asserted separately at the
+		// end, because it deliberately switches several of those off.
+		'booking_mode'      => 'merchant',
 		'markup_type'       => 'percent',
 		'markup_value'      => 8,
 		'markup_label'      => 'Service fee',
@@ -528,6 +532,125 @@ gtc_check(
 	$again['booking']->supplier_reference
 );
 
+echo "\n-- referral mode --\n";
+
+gtc()->settings()->set( 'booking_mode', 'referral' );
+gtc()->cache()->flush();
+
+$referral_result = ( new GTC_Aggregator() )->search( $request );
+$referral_groups = $referral_result->get_groups();
+
+$referral_offer = $referral_groups ? $referral_groups[0]->best() : null;
+
+if ( $referral_offer ) {
+	// The site sells nothing in this mode, so a commission line under a named
+	// supplier's price would be a wrong price attributed to that supplier.
+	$has_markup = false;
+	foreach ( $referral_offer->get_price()->get_components() as $component ) {
+		if ( 'markup' === $component['type'] ) {
+			$has_markup = true;
+		}
+	}
+
+	gtc_check(
+		'no commission is added to a referral price',
+		! $has_markup,
+		$referral_offer->get_price()->format()
+	);
+
+	// Positive control: the same offer DOES carry commission in merchant mode,
+	// so the check above is measuring the mode switch and not a markup setting
+	// that was left at zero.
+	gtc()->settings()->set( 'booking_mode', 'merchant' );
+	gtc()->cache()->flush();
+
+	$merchant_again = ( new GTC_Aggregator() )->search( $request );
+	$merchant_offer = $merchant_again->get_groups()[0]->best();
+
+	$merchant_markup = false;
+	foreach ( $merchant_offer->get_price()->get_components() as $component ) {
+		if ( 'markup' === $component['type'] ) {
+			$merchant_markup = true;
+		}
+	}
+
+	gtc_check(
+		'the same search DOES carry commission in merchant mode',
+		$merchant_markup,
+		$merchant_offer->get_price()->format()
+	);
+
+	gtc()->settings()->set( 'booking_mode', 'referral' );
+	gtc()->cache()->flush();
+
+	$referral_result = ( new GTC_Aggregator() )->search( $request );
+	$referral_groups = $referral_result->get_groups();
+	$referral_offer  = $referral_groups[0]->best();
+
+	gtc_check(
+		'a referral offer carries a link to the supplier booking page',
+		$referral_offer->has_deeplink(),
+		$referral_offer->get_deeplink()
+	);
+
+	// The deeplink carries the affiliate id, so it must not be handed to the
+	// browser — outbound traffic goes through the logged redirect instead.
+	$serialised = json_decode( wp_json_encode( $referral_offer ), true );
+
+	gtc_check(
+		'the deeplink is withheld from the browser payload',
+		! isset( $serialised['deeplink'] ) && ! empty( $serialised['has_deeplink'] ),
+		'has_deeplink flag only'
+	);
+
+	gtc_check(
+		'supplier rate tokens are still withheld too',
+		! isset( $serialised['supplier_data'] )
+	);
+
+	// Click logging: the record that a commission statement is checked against.
+	$click_log = new GTC_Click_Log();
+	$before    = $click_log->count();
+
+	$click_log->record( $referral_offer, $request );
+
+	$after = $click_log->count();
+
+	gtc_check(
+		'an outbound click is recorded',
+		$after === $before + 1,
+		$before . ' -> ' . $after
+	);
+
+	$latest = $click_log->recent( array( 'limit' => 1 ) );
+
+	gtc_check(
+		'the click records the price the visitor actually saw',
+		! empty( $latest ) && (int) $latest[0]['price_total'] === $referral_offer->get_price()->get_total(),
+		! empty( $latest ) ? GTC_Currency::format( (int) $latest[0]['price_total'], $latest[0]['currency'] ) : 'no row'
+	);
+
+	gtc_check(
+		'the click log stores no raw IP address',
+		! empty( $latest ) && 32 === strlen( (string) $latest[0]['visitor_hash'] )
+			&& ! filter_var( $latest[0]['visitor_hash'], FILTER_VALIDATE_IP ),
+		'hashed'
+	);
+
+	// A merchant API has no customer-facing page, so it cannot be referred to.
+	// The engine must say so rather than silently dropping those rates.
+	$demand = new GTC_Provider_Booking_Demand();
+	$blank  = new GTC_Offer( $demand->get_id(), GTC_Categories::HOTELS, 'x', new GTC_Price( 'USD', 1000 ) );
+
+	gtc_check(
+		'a merchant-API offer has no referral link',
+		! $blank->has_deeplink(),
+		'Booking.com Demand returns a net rate to resell, not a page to link to'
+	);
+} else {
+	gtc_check( 'referral search returned offers', false );
+}
+
 echo "\n-- audit --\n";
 
 $log_rows = gtc()->logger()->recent( 50 );
@@ -547,6 +670,9 @@ foreach ( (array) $paid['booking']->notes as $note ) {
 	}
 }
 gtc_check( 'the booking carries its own audit trail', $has_note );
+
+gtc()->settings()->set( 'booking_mode', 'referral' );
+gtc()->cache()->flush();
 
 echo "\n=== " . GTC_Check::$pass . ' passed, ' . GTC_Check::$fail . " failed ===\n\n";
 

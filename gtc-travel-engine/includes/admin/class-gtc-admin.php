@@ -44,25 +44,51 @@ class GTC_Admin {
 		add_submenu_page( 'gtc', __( 'Suppliers', 'gtc' ), __( 'Suppliers', 'gtc' ), self::CAP, 'gtc-providers', array( $this, 'page_providers' ) );
 		add_submenu_page( 'gtc', __( 'Settings', 'gtc' ), __( 'Settings', 'gtc' ), self::CAP, 'gtc-settings', array( $this, 'page_settings' ) );
 		add_submenu_page( 'gtc', __( 'Bookings', 'gtc' ), __( 'Bookings', 'gtc' ), self::CAP, 'gtc-bookings', array( $this, 'page_bookings' ) );
+		add_submenu_page( 'gtc', __( 'Outbound clicks', 'gtc' ), __( 'Outbound clicks', 'gtc' ), self::CAP, 'gtc-clicks', array( $this, 'page_clicks' ) );
 		add_submenu_page( 'gtc', __( 'Supplier log', 'gtc' ), __( 'Supplier log', 'gtc' ), self::CAP, 'gtc-log', array( $this, 'page_log' ) );
 	}
 
 	/* ------------------------------------------------------------ dashboard */
 
 	public function page_dashboard() {
-		$store = new GTC_Booking_Store();
+		$store    = new GTC_Booking_Store();
+		$clicks   = new GTC_Click_Log();
+		$referral = gtc()->settings()->is_referral_mode();
 
-		$stats = array(
-			__( 'Confirmed bookings', 'gtc' ) => $store->count( GTC_Booking::STATUS_CONFIRMED ),
-			__( 'Quotes in progress', 'gtc' ) => $store->count( GTC_Booking::STATUS_QUOTED ) + $store->count( GTC_Booking::STATUS_REVALIDATED ),
-			__( 'Needs attention', 'gtc' )    => $store->count( GTC_Booking::STATUS_SUPPLIER_ERR ),
-			__( 'All records', 'gtc' )        => $store->count(),
-		);
+		// A referral site has no bookings and never will, so showing four
+		// booking counters stuck on zero would read as a broken install.
+		if ( $referral ) {
+			$totals = $clicks->totals_by_provider( 30 );
+			$value  = 0;
+			$currency = gtc()->settings()->get( 'default_currency', 'USD' );
+			foreach ( $totals as $row ) {
+				$value += (int) $row['value_sent'];
+			}
+
+			$stats = array(
+				__( 'Outbound clicks (30 days)', 'gtc' ) => array_sum( wp_list_pluck( $totals, 'clicks' ) ),
+				__( 'Suppliers referred to', 'gtc' )     => count( $totals ),
+				__( 'Value sent (30 days)', 'gtc' )      => GTC_Currency::format( $value, $currency ),
+				__( 'Clicks all time', 'gtc' )           => $clicks->count(),
+			);
+		} else {
+			$stats = array(
+				__( 'Confirmed bookings', 'gtc' ) => $store->count( GTC_Booking::STATUS_CONFIRMED ),
+				__( 'Quotes in progress', 'gtc' ) => $store->count( GTC_Booking::STATUS_QUOTED ) + $store->count( GTC_Booking::STATUS_REVALIDATED ),
+				__( 'Needs attention', 'gtc' )    => $store->count( GTC_Booking::STATUS_SUPPLIER_ERR ),
+				__( 'All records', 'gtc' )        => $store->count(),
+			);
+		}
 
 		$ready = gtc()->providers()->for_category( GTC_Categories::HOTELS );
 		?>
 		<div class="wrap gtc-admin">
-			<h1><?php esc_html_e( 'Travel Engine', 'gtc' ); ?></h1>
+			<h1>
+				<?php esc_html_e( 'Travel Engine', 'gtc' ); ?>
+				<span class="gtc-pill <?php echo $referral ? '' : 'gtc-pill--good'; ?>">
+					<?php echo $referral ? esc_html__( 'compare & refer out', 'gtc' ) : esc_html__( 'selling directly', 'gtc' ); ?>
+				</span>
+			</h1>
 
 			<div class="gtc-admin__stats">
 				<?php foreach ( $stats as $label => $value ) : ?>
@@ -116,8 +142,22 @@ class GTC_Admin {
 			<p><?php esc_html_e( 'Place these on the relevant pages:', 'gtc' ); ?></p>
 			<ul class="gtc-admin__codes">
 				<li><code>[gtc_search]</code> — <?php esc_html_e( 'search and comparison', 'gtc' ); ?></li>
-				<li><code>[gtc_checkout]</code> — <?php esc_html_e( 'checkout (set this page under Settings)', 'gtc' ); ?></li>
-				<li><code>[gtc_confirmation]</code> — <?php esc_html_e( 'confirmation (set this page under Settings)', 'gtc' ); ?></li>
+				<li>
+					<code>[gtc_checkout]</code> —
+					<?php
+					echo $referral
+						? esc_html__( 'not used while the site refers out', 'gtc' )
+						: esc_html__( 'checkout (set this page under Settings)', 'gtc' );
+					?>
+				</li>
+				<li>
+					<code>[gtc_confirmation]</code> —
+					<?php
+					echo $referral
+						? esc_html__( 'not used while the site refers out', 'gtc' )
+						: esc_html__( 'confirmation (set this page under Settings)', 'gtc' );
+					?>
+				</li>
 			</ul>
 
 			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
@@ -275,6 +315,24 @@ class GTC_Admin {
 
 				<table class="form-table" role="presentation">
 					<tr>
+						<th scope="row"><?php esc_html_e( 'What the site does', 'gtc' ); ?></th>
+						<td>
+							<label style="display:block;margin-bottom:6px">
+								<input type="radio" name="booking_mode" value="referral" <?php checked( $settings->is_referral_mode() ); ?>>
+								<strong><?php esc_html_e( 'Compare and refer out', 'gtc' ); ?></strong> —
+								<?php esc_html_e( 'show each supplier\'s price and send the customer to that supplier to book. No payments here. Revenue is affiliate commission.', 'gtc' ); ?>
+							</label>
+							<label style="display:block">
+								<input type="radio" name="booking_mode" value="merchant" <?php checked( ! $settings->is_referral_mode() ); ?>>
+								<strong><?php esc_html_e( 'Sell directly', 'gtc' ); ?></strong> —
+								<?php esc_html_e( 'take the booking and the payment on this site. Requires a reseller agreement with each supplier.', 'gtc' ); ?>
+							</label>
+							<p class="description">
+								<?php esc_html_e( 'These need different supplier agreements. Affiliate programmes give prices plus a link to the supplier\'s own checkout; merchant APIs such as Booking.com Demand and Expedia Rapid give you a net rate to resell and expect you to take the money. Commission, the checkout and the confirmation email only apply to the second option.', 'gtc' ); ?>
+							</p>
+						</td>
+					</tr>
+					<tr>
 						<th scope="row"><label for="gtc_company_name"><?php esc_html_e( 'Company name', 'gtc' ); ?></label></th>
 						<td><input class="regular-text" type="text" id="gtc_company_name" name="company_name" value="<?php echo esc_attr( $settings->get( 'company_name', '' ) ); ?>"></td>
 					</tr>
@@ -407,6 +465,7 @@ class GTC_Admin {
 			'dedupe_radius_m'        => max( 10, min( 1000, (int) $this->post( $post, 'dedupe_radius_m', 150 ) ) ),
 			'dedupe_name_score'      => max( 0.5, min( 1.0, (float) $this->post( $post, 'dedupe_name_score', 0.82 ) ) ),
 			'price_change_tolerance' => max( 0, (int) $this->post( $post, 'price_change_tolerance', 0 ) ),
+			'booking_mode'           => 'merchant' === $this->post( $post, 'booking_mode' ) ? 'merchant' : 'referral',
 			'payment_gateway'        => sanitize_key( $this->post( $post, 'payment_gateway', 'sandbox' ) ),
 			'checkout_page_id'       => (int) $this->post( $post, 'checkout_page_id', 0 ),
 			'confirmation_page_id'   => (int) $this->post( $post, 'confirmation_page_id', 0 ),
@@ -607,6 +666,87 @@ class GTC_Admin {
 		}
 
 		return '<span class="' . esc_attr( $class ) . '">' . esc_html( str_replace( '_', ' ', $status ) ) . '</span>';
+	}
+
+	/* --------------------------------------------------------------- clicks */
+
+	public function page_clicks() {
+		$log = new GTC_Click_Log();
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only admin filter.
+		$filter = isset( $_GET['provider'] ) ? sanitize_key( wp_unslash( $_GET['provider'] ) ) : '';
+
+		$totals = $log->totals_by_provider( 30 );
+		$rows   = $log->recent(
+			array(
+				'provider_id' => $filter,
+				'limit'       => 100,
+			)
+		);
+		?>
+		<div class="wrap gtc-admin">
+			<h1><?php esc_html_e( 'Outbound clicks', 'gtc' ); ?></h1>
+			<p class="description">
+				<?php esc_html_e( 'Every time a visitor is sent to a supplier, the offer and the price they saw are recorded here. This is what a commission statement gets checked against. No personal data is stored — the visitor column is a one-way hash used only to collapse repeat clicks.', 'gtc' ); ?>
+			</p>
+
+			<h2><?php esc_html_e( 'Last 30 days by supplier', 'gtc' ); ?></h2>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'Supplier', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Clicks', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Distinct visitors', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Value sent', 'gtc' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php if ( ! $totals ) : ?>
+						<tr><td colspan="4"><?php esc_html_e( 'No outbound clicks yet.', 'gtc' ); ?></td></tr>
+					<?php endif; ?>
+					<?php foreach ( $totals as $row ) : ?>
+						<?php $provider = gtc()->providers()->get( $row['provider_id'] ); ?>
+						<tr>
+							<td><strong><?php echo esc_html( $provider ? $provider->get_label() : $row['provider_id'] ); ?></strong></td>
+							<td><?php echo esc_html( $row['clicks'] ); ?></td>
+							<td><?php echo esc_html( $row['visitors'] ); ?></td>
+							<td><?php echo esc_html( GTC_Currency::format( (int) $row['value_sent'], $row['currency'] ) ); ?></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+
+			<h2><?php esc_html_e( 'Recent clicks', 'gtc' ); ?></h2>
+			<table class="widefat striped">
+				<thead>
+					<tr>
+						<th><?php esc_html_e( 'When (UTC)', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Supplier', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Property', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Rate', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Price shown', 'gtc' ); ?></th>
+						<th><?php esc_html_e( 'Visitor', 'gtc' ); ?></th>
+					</tr>
+				</thead>
+				<tbody>
+					<?php if ( ! $rows ) : ?>
+						<tr><td colspan="6"><?php esc_html_e( 'Nothing recorded yet.', 'gtc' ); ?></td></tr>
+					<?php endif; ?>
+					<?php foreach ( $rows as $row ) : ?>
+						<?php $provider = gtc()->providers()->get( $row['provider_id'] ); ?>
+						<tr>
+							<td><?php echo esc_html( $row['created_at'] ); ?></td>
+							<td><?php echo esc_html( $provider ? $provider->get_label() : $row['provider_id'] ); ?></td>
+							<td><?php echo esc_html( $row['product_name'] ); ?></td>
+							<td><?php echo esc_html( $row['rate_name'] ); ?></td>
+							<td><?php echo esc_html( GTC_Currency::format( (int) $row['price_total'], $row['currency'] ) ); ?></td>
+							<td><code><?php echo esc_html( substr( (string) $row['visitor_hash'], 0, 8 ) ); ?></code></td>
+						</tr>
+					<?php endforeach; ?>
+				</tbody>
+			</table>
+		</div>
+		<?php
 	}
 
 	/* ------------------------------------------------------------------ log */

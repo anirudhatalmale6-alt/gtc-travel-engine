@@ -41,6 +41,18 @@
 		} );
 	}
 
+	function apiUrl( path, params ) {
+		var url = cfg.root + path;
+		var join = url.indexOf( '?' ) === -1 ? '?' : '&';
+
+		Object.keys( params || {} ).forEach( function ( key ) {
+			url += join + encodeURIComponent( key ) + '=' + encodeURIComponent( params[ key ] );
+			join = '&';
+		} );
+
+		return url;
+	}
+
 	function el( tag, className, text ) {
 		var node = document.createElement( tag );
 		if ( className ) {
@@ -408,16 +420,48 @@
 
 			right.appendChild( priceCol );
 
-			var button = el( 'button', 'gtc-btn gtc-btn--select' + ( isCheapest ? ' gtc-btn--select-best' : '' ), cfg.i18n.select );
-			button.type = 'button';
-			button.addEventListener( 'click', function () {
-				select( button, data.search_hash, offerKey( offer ) );
-			} );
-			right.appendChild( button );
+			right.appendChild( action( offer, data, isCheapest ) );
 
 			line.appendChild( right );
 
 			return line;
+		}
+
+		/**
+		 * Referral mode hands the customer to the supplier; merchant mode
+		 * starts our own checkout. A real anchor is used for the referral, not
+		 * a button with a click handler, so middle-click, "open in new tab" and
+		 * copy-link all behave the way a link is expected to.
+		 */
+		function action( offer, data, isCheapest ) {
+			var classes = 'gtc-btn gtc-btn--select' + ( isCheapest ? ' gtc-btn--select-best' : '' );
+
+			if ( ! cfg.referral ) {
+				var button = el( 'button', classes, cfg.i18n.select );
+				button.type = 'button';
+				button.addEventListener( 'click', function () {
+					select( button, data.search_hash, offerKey( offer ) );
+				} );
+				return button;
+			}
+
+			if ( ! offer.has_deeplink ) {
+				var dead = el( 'span', 'gtc-nolink', cfg.i18n.noLink );
+				dead.title = cfg.i18n.noLinkHint;
+				return dead;
+			}
+
+			var link = el( 'a', classes + ' gtc-btn--out',
+				cfg.i18n.viewOn.replace( '%s', providerLabel( offer.provider_id ) ) );
+
+			link.href = apiUrl( '/go', { h: data.search_hash, k: offerKey( offer ) } );
+			link.target = '_blank';
+			// sponsored: the site earns commission on this click, and search
+			// engines are entitled to know that. noopener: the supplier's page
+			// must not get a handle on ours.
+			link.rel = 'nofollow sponsored noopener';
+
+			return link;
 		}
 
 		function offerKey( offer ) {

@@ -4,9 +4,34 @@ A supplier-agnostic travel comparison and booking engine, built as a WordPress
 plugin so it drops into an existing managed WordPress site without replacing
 the theme.
 
-It implements the **Search / Look / Book** model that distribution APIs are
-built around, and keeps the whole journey — search, compare, select, revalidate,
-pay, confirm — on your own domain.
+---
+
+## Two modes, one engine
+
+The same search, matching and comparison serve both business models. The mode
+is a setting, because the two need completely different supplier agreements:
+
+| | **Compare & refer out** (default) | **Sell directly** |
+|---|---|---|
+| The customer books | on the supplier's own site | here |
+| You take payment | no | yes |
+| Revenue | affiliate commission | margin on the net rate |
+| Supplier agreement | affiliate programme | reseller / merchant API |
+| Commission added to displayed price | **never** | yes, as a visible line |
+| Checkout, revalidation, confirmation email | not used | used |
+
+**Referral mode adds no commission to the displayed price.** Marking up a figure
+shown under a named supplier's row is not a markup — it is a wrong price
+attributed to somebody else. Revenue in that model comes from the affiliate
+click, which is why every outbound click is logged with the price the visitor
+actually saw.
+
+A merchant API returns a **net rate for you to resell** and publishes no
+customer-facing page to link to. Booking.com Demand and Expedia Rapid are both
+merchant APIs. Connect one in referral mode and the engine says so on the
+results page — those rates are shown for comparison but carry no link, because
+there is nowhere to send anyone. That notice is how a site discovers it has
+connected the wrong kind of API for the model it is running.
 
 ---
 
@@ -17,9 +42,10 @@ pay, confirm — on your own domain.
 | **Search** | The request fans out to every connected supplier in parallel-safe isolation. A supplier that errors or times out is dropped from that search and reported, never allowed to blank the page. Results are cached briefly; nothing else is. |
 | **Normalise** | Each adapter maps its supplier's response into one `GTC_Offer` shape, so the comparison, the checkout and the booking record never learn a supplier's field names. |
 | **Match** | Equivalent products from different suppliers are clustered into one card with a per-supplier price comparison, instead of the same hotel appearing four times. |
-| **Look** | When the customer selects an offer, the engine re-prices it live against the supplier before the checkout page renders. Never cached. |
-| **Book** | Payment is **authorised**, the supplier reservation is placed, and only then is the payment **captured**. Every transition is written to the database before the next call is made. |
-| **Confirm** | Booking and supplier references, the full itemised price, and a confirmation email. |
+| **Refer** *(referral mode)* | Each row links to that supplier's own booking page through a logged redirect, so clicks can be reconciled against a commission statement. |
+| **Look** *(merchant mode)* | When the customer selects an offer, the engine re-prices it live against the supplier before the checkout page renders. Never cached. |
+| **Book** *(merchant mode)* | Payment is **authorised**, the supplier reservation is placed, and only then is the payment **captured**. Every transition is written to the database before the next call is made. |
+| **Confirm** *(merchant mode)* | Booking and supplier references, the full itemised price, and a confirmation email. |
 
 ## Categories
 
@@ -148,7 +174,7 @@ nothing rather than guessing an id.
 
 ---
 
-## Payments
+## Payments (merchant mode only)
 
 Gateways implement `GTC_Gateway`. The engine authorises before calling the
 supplier and captures after the supplier confirms, so the two expensive
@@ -213,8 +239,8 @@ Requires WordPress 6.4+ and PHP 8.0+.
 php wp-cli.phar eval-file tests/engine-check.php --path=site
 ```
 
-42 assertions covering the fan-out, matching, comparison, pricing,
-revalidation, booking and audit paths.
+51 assertions covering the fan-out, matching, comparison, pricing,
+revalidation, booking, referral and audit paths.
 
 Every duplicate-matching assertion is **paired** — one case that must merge and
 one that must not. A matcher that merged everything would pass the positives
@@ -230,6 +256,13 @@ And on the comparison: a superior room is **never** placed in the same class as
 a standard one, while differently worded base rooms **still** meet — the pair
 that proves the grade axis restricts without disabling. A single-supplier card
 is checked to advertise no saving.
+
+On referral mode, the mode switch itself is the thing under test, so it is
+checked in both positions: commission is absent from a referral price **and**
+present on the same search in merchant mode. A check that only looked at the
+referral price would pass just as happily against a markup setting left at zero.
+The outbound deeplink is asserted to reach the server but never the browser
+payload, and the click log is asserted to store a hash rather than an IP.
 
 Likewise on the money path: a valid card books; a total the customer never
 accepted is refused and leaves no payment and no reservation; a declined card
@@ -247,6 +280,7 @@ leaves no supplier reservation; a double submit returns the same reservation.
 | `gtc_markup_rule` | per-supplier, per-category or per-destination commission |
 | `gtc_fx_rate` | supply an exchange rate (there is no built-in rate source — see below) |
 | `gtc_provider_credentials` | serve keys from wp-config or a secrets manager instead of the database |
+| `gtc_outbound_url` | decorate the referral link — affiliate sub-id, campaign tag |
 | `gtc_rate_limit_per_minute` | tune the public endpoint rate limit |
 | `gtc_booking_confirmed` | push to a CRM, ledger or supplier reconciliation |
 | `gtc_booking_needs_attention` | escalate a booking that took money and needs a human |

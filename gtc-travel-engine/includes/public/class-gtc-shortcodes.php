@@ -75,6 +75,7 @@ class GTC_Shortcodes {
 				// Display names, so the comparison names the supplier the
 				// customer would recognise rather than an internal adapter id.
 				'providers'  => $this->provider_labels(),
+				'referral'   => gtc()->settings()->is_referral_mode(),
 				'i18n'       => array(
 					'searching'   => __( 'Searching suppliers…', 'gtc' ),
 					'noResults'   => __( 'No availability found for these dates.', 'gtc' ),
@@ -86,6 +87,11 @@ class GTC_Shortcodes {
 					'suppliers'   => __( 'suppliers', 'gtc' ),
 					'youSave'     => __( 'Save', 'gtc' ),
 					'atProperty'  => __( 'payable at the property', 'gtc' ),
+					/* translators: %s: supplier name. Kept as a literal %s — the
+					   front end substitutes it, so it must survive translation. */
+					'viewOn'      => __( 'View deal on %s', 'gtc' ),
+					'noLink'      => __( 'No link available', 'gtc' ),
+					'noLinkHint'  => __( 'This supplier provides prices but no booking page to link to.', 'gtc' ),
 				),
 			)
 		);
@@ -133,6 +139,13 @@ class GTC_Shortcodes {
 	 * @return string
 	 */
 	public function checkout() {
+		// In referral mode the site takes no bookings, so these pages have
+		// nothing to render. They stay published rather than being deleted —
+		// a site can switch back — but they must not present a checkout.
+		if ( gtc()->settings()->is_referral_mode() ) {
+			return $this->notice( __( 'This site compares prices and does not take bookings directly. Choose a supplier from the results to book with them.', 'gtc' ) );
+		}
+
 		$this->enqueue();
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only page load, authorised by the HMAC token below.
@@ -170,6 +183,13 @@ class GTC_Shortcodes {
 	 * @return string
 	 */
 	public function confirmation() {
+		// In referral mode the site takes no bookings, so these pages have
+		// nothing to render. They stay published rather than being deleted —
+		// a site can switch back — but they must not present a checkout.
+		if ( gtc()->settings()->is_referral_mode() ) {
+			return $this->notice( __( 'This site compares prices and does not take bookings directly. Choose a supplier from the results to book with them.', 'gtc' ) );
+		}
+
 		$this->enqueue();
 
 		// phpcs:disable WordPress.Security.NonceVerification.Recommended -- read-only page load, authorised by the HMAC token below.

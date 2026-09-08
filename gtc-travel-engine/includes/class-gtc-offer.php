@@ -36,6 +36,14 @@ class GTC_Offer implements JsonSerializable {
 	/** @var array Opaque adapter payload, round-tripped to Look and Book. */
 	private $supplier_data = array();
 
+	/**
+	 * Where the customer completes this booking when the site refers out
+	 * instead of selling. Empty for merchant APIs, which have no such page.
+	 *
+	 * @var string
+	 */
+	private $deeplink = '';
+
 	/** @var bool */
 	private $available = true;
 
@@ -202,6 +210,31 @@ class GTC_Offer implements JsonSerializable {
 		return $this->supplier_data;
 	}
 
+	/**
+	 * @param string $url Supplier's own booking page for this offer.
+	 * @return $this
+	 */
+	public function set_deeplink( $url ) {
+		$this->deeplink = esc_url_raw( (string) $url );
+		return $this;
+	}
+
+	/**
+	 * Where the customer finishes the booking when the site refers out. Empty
+	 * for merchant APIs — those exist so the site sells the room itself, and
+	 * they publish no customer-facing page to send anyone to.
+	 *
+	 * @return string
+	 */
+	public function get_deeplink() {
+		return $this->deeplink;
+	}
+
+	/** @return bool */
+	public function has_deeplink() {
+		return '' !== $this->deeplink;
+	}
+
 	/** @return bool */
 	public function is_available() {
 		return $this->available;
@@ -244,6 +277,7 @@ class GTC_Offer implements JsonSerializable {
 			'product'       => $this->product,
 			'rate'          => $this->rate,
 			'supplier_data' => $this->supplier_data,
+			'deeplink'      => $this->deeplink,
 			'available'     => $this->available,
 		);
 	}
@@ -262,6 +296,9 @@ class GTC_Offer implements JsonSerializable {
 		$offer->set_product( isset( $data['product'] ) ? (array) $data['product'] : array() );
 		$offer->set_rate( isset( $data['rate'] ) ? (array) $data['rate'] : array() );
 		$offer->set_supplier_data( isset( $data['supplier_data'] ) ? (array) $data['supplier_data'] : array() );
+		if ( ! empty( $data['deeplink'] ) ) {
+			$offer->set_deeplink( $data['deeplink'] );
+		}
 		if ( isset( $data['available'] ) && ! $data['available'] ) {
 			$offer->mark_unavailable( '' );
 		}
@@ -269,8 +306,12 @@ class GTC_Offer implements JsonSerializable {
 	}
 
 	/**
-	 * What is safe to send to the browser: everything except supplier_data,
-	 * which can hold rate tokens and must never leave the server.
+	 * What is safe to send to the browser.
+	 *
+	 * supplier_data holds rate tokens and never leaves the server. The deeplink
+	 * is withheld too — it carries the affiliate identifier, and outbound
+	 * traffic goes through a logged redirect so clicks can be reconciled
+	 * against commission. The browser gets a boolean instead.
 	 *
 	 * @return array
 	 */
@@ -278,6 +319,8 @@ class GTC_Offer implements JsonSerializable {
 	public function jsonSerialize() {
 		$out = $this->to_array();
 		unset( $out['supplier_data'] );
+		unset( $out['deeplink'] );
+		$out['has_deeplink'] = $this->has_deeplink();
 		return $out;
 	}
 }

@@ -9,7 +9,7 @@ defined( 'ABSPATH' ) || exit;
 
 class GTC_Install {
 
-	const DB_VERSION = '4';
+	const DB_VERSION = '5';
 
 	public static function activate() {
 		self::create_tables();
@@ -102,6 +102,7 @@ class GTC_Install {
 		$charset = $wpdb->get_charset_collate();
 		$b       = GTC_Booking_Store::table();
 		$l       = GTC_Logger::table();
+		$c       = GTC_Click_Log::table();
 
 		$sql = "CREATE TABLE {$b} (
 			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -151,6 +152,27 @@ class GTC_Install {
 			KEY provider_id (provider_id),
 			KEY booking_ref (booking_ref),
 			KEY created_at (created_at)
+		) {$charset};";
+
+		dbDelta( $sql );
+
+		$sql = "CREATE TABLE {$c} (
+			id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+			created_at datetime NOT NULL DEFAULT '0000-00-00 00:00:00',
+			provider_id varchar(64) NOT NULL DEFAULT '',
+			category varchar(32) NOT NULL DEFAULT '',
+			search_hash varchar(32) NOT NULL DEFAULT '',
+			offer_key varchar(191) NOT NULL DEFAULT '',
+			product_name varchar(255) NOT NULL DEFAULT '',
+			rate_name varchar(255) NOT NULL DEFAULT '',
+			currency varchar(3) NOT NULL DEFAULT 'USD',
+			price_total bigint(20) NOT NULL DEFAULT 0,
+			grand_total bigint(20) NOT NULL DEFAULT 0,
+			visitor_hash varchar(32) NOT NULL DEFAULT '',
+			PRIMARY KEY  (id),
+			KEY provider_id (provider_id),
+			KEY created_at (created_at),
+			KEY search_hash (search_hash)
 		) {$charset};";
 
 		dbDelta( $sql );

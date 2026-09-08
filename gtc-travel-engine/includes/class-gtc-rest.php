@@ -52,6 +52,20 @@ class GTC_Rest {
 			)
 		);
 
+		// Outbound referral. GET, because it is a navigation the browser
+		// performs — and it must stay a real redirect rather than a JSON
+		// response the page follows, so the click survives a middle-click, a
+		// copied link and a bookmarked one.
+		register_rest_route(
+			self::NS,
+			'/go',
+			array(
+				'methods'             => WP_REST_Server::READABLE,
+				'callback'            => array( $this, 'go' ),
+				'permission_callback' => '__return_true',
+			)
+		);
+
 		register_rest_route(
 			self::NS,
 			'/book',
@@ -193,6 +207,17 @@ class GTC_Rest {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function select( WP_REST_Request $request ) {
+		// A site in referral mode sells nothing. Refusing here means a cached
+		// page or an old bookmark cannot create a quote the operator has no
+		// supplier agreement to fulfil.
+		if ( gtc()->settings()->is_referral_mode() ) {
+			return new WP_Error(
+				'gtc_referral_mode',
+				__( 'This site compares prices and does not take bookings directly.', 'gtc' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$params = (array) $request->get_json_params();
 
 		$hash = isset( $params['search_hash'] ) ? sanitize_text_field( $params['search_hash'] ) : '';
@@ -234,6 +259,17 @@ class GTC_Rest {
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function revalidate( WP_REST_Request $request ) {
+		// A site in referral mode sells nothing. Refusing here means a cached
+		// page or an old bookmark cannot create a quote the operator has no
+		// supplier agreement to fulfil.
+		if ( gtc()->settings()->is_referral_mode() ) {
+			return new WP_Error(
+				'gtc_referral_mode',
+				__( 'This site compares prices and does not take bookings directly.', 'gtc' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$booking = $this->authorise_booking( $request );
 
 		if ( is_wp_error( $booking ) ) {
@@ -249,10 +285,80 @@ class GTC_Rest {
 	}
 
 	/**
+	 * Send the customer to the supplier's own booking page, and record that we
+	 * did.
+	 *
+	 * The destination is never taken from the request. It is read from the
+	 * stored result set, so this cannot be turned into an open redirect that
+	 * launders a phishing link through the site's domain — the only URLs it
+	 * will ever emit are ones a supplier returned.
+	 *
+	 * @param WP_REST_Request $request Request.
+	 * @return WP_REST_Response|WP_Error
+	 */
+	public function go( WP_REST_Request $request ) {
+		$hash = sanitize_text_field( (string) $request->get_param( 'h' ) );
+		$key  = sanitize_text_field( (string) $request->get_param( 'k' ) );
+
+		if ( ! $hash || ! $key ) {
+			return new WP_Error( 'gtc_bad_request', __( 'Missing offer reference.', 'gtc' ), array( 'status' => 400 ) );
+		}
+
+		$found = gtc()->cache()->get_from_result_set( $hash, $key );
+
+		if ( ! $found ) {
+			return new WP_Error(
+				'gtc_offer_expired',
+				__( 'That search has expired. Please search again to see current prices.', 'gtc' ),
+				array( 'status' => 410 )
+			);
+		}
+
+		$offer = $found['offer'];
+
+		if ( ! $offer->has_deeplink() ) {
+			return new WP_Error(
+				'gtc_no_deeplink',
+				__( 'This supplier does not provide a link to its own booking page.', 'gtc' ),
+				array( 'status' => 409 )
+			);
+		}
+
+		( new GTC_Click_Log() )->record( $offer, $found['request'] );
+
+		/**
+		 * Last chance to decorate the outbound URL — an affiliate sub-id, a
+		 * campaign tag, or a tracking parameter the supplier expects.
+		 *
+		 * @param string    $url   Deeplink.
+		 * @param GTC_Offer $offer Offer.
+		 */
+		$url = apply_filters( 'gtc_outbound_url', $offer->get_deeplink(), $offer );
+
+		// wp_redirect, not wp_safe_redirect: the whole point is to leave for a
+		// supplier's domain. The URL is server-side and supplier-supplied, so
+		// the host allowlist that wp_safe_redirect enforces would block every
+		// legitimate destination.
+		wp_redirect( esc_url_raw( $url ), 302, 'GTC' );
+		exit;
+	}
+
+	/**
 	 * @param WP_REST_Request $request Request.
 	 * @return WP_REST_Response|WP_Error
 	 */
 	public function book( WP_REST_Request $request ) {
+		// A site in referral mode sells nothing. Refusing here means a cached
+		// page or an old bookmark cannot create a quote the operator has no
+		// supplier agreement to fulfil.
+		if ( gtc()->settings()->is_referral_mode() ) {
+			return new WP_Error(
+				'gtc_referral_mode',
+				__( 'This site compares prices and does not take bookings directly.', 'gtc' ),
+				array( 'status' => 404 )
+			);
+		}
+
 		$booking = $this->authorise_booking( $request );
 
 		if ( is_wp_error( $booking ) ) {

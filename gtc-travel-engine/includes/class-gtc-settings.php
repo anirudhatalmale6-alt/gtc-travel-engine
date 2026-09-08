@@ -36,6 +36,11 @@ class GTC_Settings {
 			'dedupe_name_score'    => 0.82,
 			'results_per_page'     => 20,
 			'price_change_tolerance' => 0,
+			// referral = compare and send the customer to the supplier's own
+			// site; merchant = take the booking and the money here. The two
+			// need completely different supplier agreements, so this is the
+			// switch the whole platform hangs off.
+			'booking_mode'         => 'referral',
 			'payment_gateway'      => 'sandbox',
 			'company_name'         => '',
 			'support_email'        => '',
@@ -125,6 +130,15 @@ class GTC_Settings {
 		}
 		$all[ $provider_id ] = $creds;
 		update_option( self::OPTION_CREDS, $all, false );
+	}
+
+	/**
+	 * True when the site refers customers out rather than selling to them.
+	 *
+	 * @return bool
+	 */
+	public function is_referral_mode() {
+		return 'merchant' !== $this->get( 'booking_mode', 'referral' );
 	}
 
 	/**

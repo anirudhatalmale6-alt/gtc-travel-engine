@@ -521,6 +521,27 @@
 	letter-spacing: .04em;
 }
 
+.gtc-btn--out {
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+}
+
+.gtc-btn--out::after {
+	content: "↗";
+	font-size: 13px;
+	line-height: 1;
+}
+
+.gtc-nolink {
+	font-size: 12px;
+	color: var( --gtc-ink-soft );
+	font-style: italic;
+	padding: 8px 0;
+	white-space: nowrap;
+}
+
 .gtc-btn--select-best {
 	background: var( --gtc-accent );
 	color: #fff;

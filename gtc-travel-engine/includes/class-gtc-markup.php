@@ -22,6 +22,16 @@ class GTC_Markup {
 	public function apply( GTC_Offer $offer, GTC_Search_Request $request ) {
 		$settings = gtc()->settings();
 
+		// In referral mode the site sells nothing — it shows what each supplier
+		// charges and sends the customer there. Adding commission would print
+		// an inflated figure under a named supplier's row, which is not a
+		// markup, it is a wrong price attributed to somebody else. Revenue in
+		// this model comes from affiliate commission, not from the displayed
+		// price.
+		if ( $settings->is_referral_mode() ) {
+			return $offer;
+		}
+
 		$type  = $settings->get( 'markup_type', 'percent' );
 		$value = (float) $settings->get( 'markup_value', 0 );
 		$label = (string) $settings->get( 'markup_label', __( 'Service fee', 'gtc' ) );

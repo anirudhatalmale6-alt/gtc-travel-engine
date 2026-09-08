@@ -217,6 +217,23 @@ abstract class GTC_Provider_Sandbox_Base extends GTC_Provider_Base {
 				)
 			);
 
+			// Referral destination. example.com is the address reserved for
+			// documentation, so a demo click lands somewhere unmistakably not a
+			// travel site — rather than pointing a fictional supplier's rate at
+			// a real booking company's domain.
+			$offer->set_deeplink(
+				add_query_arg(
+					array(
+						'property' => $property['canonical'],
+						'room'     => $room['code'],
+						'checkin'  => (string) $request->get( 'check_in', '' ),
+						'checkout' => (string) $request->get( 'check_out', '' ),
+						'aid'      => 'demo-affiliate-id',
+					),
+					'https://example.com/' . $this->get_id() . '/book'
+				)
+			);
+
 			$offers[] = $offer;
 		}
 

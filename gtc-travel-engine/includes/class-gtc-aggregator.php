@@ -91,6 +91,8 @@ class GTC_Aggregator {
 
 		$offers = $this->apply_filters( $offers, $args['filters'] );
 
+		$this->check_deeplinks( $offers, $result );
+
 		// The result set is stored before pagination so Look can recover any
 		// offer the customer clicks, including ones on later pages.
 		$cache->set_result_set( $request, $offers );
@@ -176,6 +178,56 @@ class GTC_Aggregator {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * In referral mode an offer without a link to the supplier's own booking
+	 * page is a dead end: the price can be shown but the customer cannot be
+	 * sent anywhere to take it.
+	 *
+	 * These are reported rather than dropped. Silently hiding them would make a
+	 * misconfigured supplier look like a supplier with no availability, and the
+	 * operator would go looking in the wrong place. Merchant APIs — which is
+	 * what Booking.com Demand and Expedia Rapid are — publish no such page by
+	 * design, so this notice is exactly how a site discovers it has connected
+	 * the wrong kind of API for the model it is running.
+	 *
+	 * @param GTC_Offer[]       $offers Offers.
+	 * @param GTC_Search_Result $result Result, for notices.
+	 */
+	private function check_deeplinks( array $offers, GTC_Search_Result $result ) {
+		if ( ! gtc()->settings()->is_referral_mode() ) {
+			return;
+		}
+
+		$by_provider = array();
+
+		foreach ( $offers as $offer ) {
+			if ( $offer->has_deeplink() ) {
+				continue;
+			}
+			$id                 = $offer->get_provider_id();
+			$by_provider[ $id ] = isset( $by_provider[ $id ] ) ? $by_provider[ $id ] + 1 : 1;
+		}
+
+		foreach ( $by_provider as $id => $count ) {
+			$provider = gtc()->providers()->get( $id );
+			$label    = $provider ? $provider->get_label() : $id;
+
+			$result->add_notice(
+				sprintf(
+					/* translators: 1: count 2: supplier name */
+					_n(
+						'%1$d rate from %2$s cannot be linked to a booking page, so it is shown for comparison only.',
+						'%1$d rates from %2$s cannot be linked to a booking page, so they are shown for comparison only.',
+						$count,
+						'gtc'
+					),
+					$count,
+					$label
+				)
+			);
+		}
 	}
 
 	/**
