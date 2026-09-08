@@ -221,6 +221,132 @@ gtc_check(
 	)
 );
 
+echo "\n-- like-for-like supplier comparison --\n";
+
+$compare_group = $azulejo ? $azulejo : ( $miradouro ? $miradouro : null );
+
+if ( $compare_group ) {
+	$rows = $compare_group->comparisons();
+
+	gtc_check(
+		'the card is split into comparable classes',
+		count( $rows ) > 0,
+		count( $rows ) . ' classes'
+	);
+
+	$multi = 0;
+	foreach ( $rows as $row ) {
+		if ( $row['supplier_count'] > 1 ) {
+			$multi++;
+		}
+	}
+
+	gtc_check(
+		'at least one class holds both suppliers',
+		$multi > 0,
+		$multi . ' comparable classes'
+	);
+
+	// A class must never hold the same supplier twice, or the "comparison"
+	// is one supplier's two rate plans sitting next to each other.
+	$one_per_supplier = true;
+	foreach ( $rows as $row ) {
+		$seen = array();
+		foreach ( $row['offers'] as $offer ) {
+			if ( isset( $seen[ $offer->get_provider_id() ] ) ) {
+				$one_per_supplier = false;
+			}
+			$seen[ $offer->get_provider_id() ] = true;
+		}
+	}
+	gtc_check( 'each class holds at most one rate per supplier', $one_per_supplier );
+
+	// The point of the class key: everything inside a class must be the same
+	// product on all three axes.
+	$homogeneous = true;
+	$mismatch    = '';
+	foreach ( $rows as $row ) {
+		$signature = null;
+		foreach ( $row['offers'] as $offer ) {
+			$this_sig = GTC_Offer_Group::room_grade( (string) $offer->rate( 'name' ) )
+				. '|' . $offer->rate( 'board' )
+				. '|' . ( $offer->rate( 'refundable' ) ? '1' : '0' );
+
+			if ( null === $signature ) {
+				$signature = $this_sig;
+			} elseif ( $signature !== $this_sig ) {
+				$homogeneous = false;
+				$mismatch    = $signature . ' vs ' . $this_sig;
+			}
+		}
+	}
+	gtc_check(
+		'every class is one grade, one board basis, one cancellation policy',
+		$homogeneous,
+		$homogeneous ? 'consistent' : $mismatch
+	);
+
+	// Negative control for the grade axis. Without grade in the key these two
+	// land in the same class and their price gap is reported as a saving.
+	gtc_check(
+		'a superior room is not compared against a standard room',
+		GTC_Offer_Group::room_grade( 'Superior Room, breakfast included' )
+			!== GTC_Offer_Group::room_grade( 'Standard Double Room with Breakfast' ),
+		'superior vs standard'
+	);
+
+	// Positive control for the same axis: differently-worded base rooms must
+	// still meet, or the grade key would simply disable comparison.
+	gtc_check(
+		'differently worded base rooms still compare',
+		GTC_Offer_Group::room_grade( 'Double Room' )
+			=== GTC_Offer_Group::room_grade( 'Standard Double Room' ),
+		'both resolve to standard'
+	);
+
+	// The headline badge must come from a multi-supplier class only.
+	$max_multi_saving = 0;
+	foreach ( $rows as $row ) {
+		if ( $row['supplier_count'] > 1 && $row['saving'] > $max_multi_saving ) {
+			$max_multi_saving = $row['saving'];
+		}
+	}
+
+	gtc_check(
+		'the advertised saving is the best like-for-like gap, not the spread across all rates',
+		$compare_group->like_for_like_saving() === $max_multi_saving,
+		GTC_Currency::format( $compare_group->like_for_like_saving(), 'USD' )
+			. ' like-for-like vs ' . GTC_Currency::format( $compare_group->saving(), 'USD' ) . ' across all rates'
+	);
+
+	// The two figures measure different things and neither bounds the other:
+	// saving() pairs each supplier's cheapest rate whatever it is, so it can
+	// be the gap between a non-refundable room-only rate and a refundable one.
+	// The like-for-like figure is the largest gap on a single product, which
+	// may well be bigger. What matters is that the advertised number always
+	// comes from one class — asserted above — not that it is the smaller one.
+	echo '  note  like-for-like ' . GTC_Currency::format( $compare_group->like_for_like_saving(), 'USD' )
+		. ', cheapest-vs-cheapest ' . GTC_Currency::format( $compare_group->saving(), 'USD' )
+		. " — different pairings, neither bounds the other\n";
+
+	// Nothing to compare must advertise nothing. This is the guard that stops
+	// a single-supplier card carrying a "Save $X" badge built from that one
+	// supplier's own rate spread.
+	$solo = gtc_find_group( $groups, 'Alfama Hill' );
+
+	if ( $solo ) {
+		gtc_check(
+			'a single-supplier card advertises no saving',
+			1 === $solo->provider_count() && 0 === $solo->like_for_like_saving(),
+			$solo->provider_count() . ' supplier, badge ' . $solo->like_for_like_saving()
+		);
+	} else {
+		gtc_check( 'single-supplier fixture found', false, 'Alfama Hill missing' );
+	}
+} else {
+	gtc_check( 'a multi-supplier group was found to compare', false );
+}
+
 echo "\n-- pricing --\n";
 
 $best = $azulejo ? $azulejo->best() : $groups[0]->best();

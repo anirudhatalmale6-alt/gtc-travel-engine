@@ -175,7 +175,7 @@
 			Object.keys( data.providers || {} ).forEach( function ( id ) {
 				var info = data.providers[ id ];
 				var chip = el( 'span', 'gtc-chip' + ( info.cached ? ' gtc-chip--cached' : '' ) );
-				chip.appendChild( el( 'strong', null, id ) );
+				chip.appendChild( el( 'strong', null, providerLabel( id ) ) );
 				chip.appendChild( el( 'span', null, info.offers + ' rates' +
 					( info.cached ? ' (cached)' : ' · ' + info.ms + 'ms' ) ) );
 				suppliersEl.appendChild( chip );
@@ -183,7 +183,7 @@
 
 			Object.keys( data.failures || {} ).forEach( function ( id ) {
 				var chip = el( 'span', 'gtc-chip gtc-chip--failed' );
-				chip.appendChild( el( 'strong', null, id ) );
+				chip.appendChild( el( 'strong', null, providerLabel( id ) ) );
 				chip.appendChild( el( 'span', null, data.failures[ id ] ) );
 				suppliersEl.appendChild( chip );
 			} );
@@ -235,9 +235,13 @@
 
 			var priceBox = el( 'div', 'gtc-card__price' );
 
-			if ( group.saving > 0 ) {
+			// Only claim a saving when the two prices being compared are for
+			// the same product. group.saving spans every rate on the card, so
+			// it can be the gap between a room-only rate and a breakfast rate
+			// at a different supplier — a real number that means nothing.
+			if ( group.like_for_like > 0 ) {
 				priceBox.appendChild( el( 'span', 'gtc-badge gtc-badge--save',
-					cfg.i18n.youSave + ' ' + money( group.saving, price.currency ) ) );
+					cfg.i18n.youSave + ' ' + money( group.like_for_like, price.currency ) ) );
 			}
 
 			priceBox.appendChild( el( 'span', 'gtc-card__from', cfg.i18n.from ) );
@@ -260,63 +264,151 @@
 				wrap.appendChild( amenities );
 			}
 
-			// Supplier comparison: the reason the page exists.
-			var compare = el( 'div', 'gtc-compare' );
-
-			var byProvider = {};
-			group.offers.forEach( function ( offer ) {
-				if ( ! byProvider[ offer.provider_id ] ) {
-					byProvider[ offer.provider_id ] = [];
-				}
-				byProvider[ offer.provider_id ].push( offer );
-			} );
-
-			if ( group.provider_count > 1 ) {
-				compare.appendChild( el( 'p', 'gtc-compare__head',
-					'Same property, ' + group.provider_count + ' ' + cfg.i18n.suppliers ) );
-			}
-
-			Object.keys( byProvider ).forEach( function ( providerId ) {
-				byProvider[ providerId ].slice( 0, 3 ).forEach( function ( offer ) {
-					// `best` is a separate copy of the same offer in the JSON,
-					// so identity comparison would never match — compare the
-					// keys instead.
-					compare.appendChild( row( offer, data, offerKey( offer ) === offerKey( best ) &&
-						offer.rate.name === best.rate.name ) );
-				} );
-			} );
-
-			wrap.appendChild( compare );
+			wrap.appendChild( compare( group, data ) );
 
 			return wrap;
 		}
 
-		function row( offer, data, isBest ) {
-			var line = el( 'div', 'gtc-offer' + ( isBest ? ' is-best' : '' ) );
+		function providerLabel( id ) {
+			return ( cfg.providers && cfg.providers[ id ] ) || id;
+		}
+
+		/**
+		 * The supplier price comparison.
+		 *
+		 * Rates are grouped into comparable classes (board + cancellation
+		 * terms) and each class puts one row per supplier side by side, so the
+		 * customer is comparing the same product rather than whichever mix of
+		 * rate plans each supplier happened to return. Classes that only one
+		 * supplier quotes are not a comparison, so they are folded away.
+		 */
+		function compare( group, data ) {
+			var box = el( 'div', 'gtc-compare' );
+			var rows = group.comparisons || [];
+
+			var multi = rows.filter( function ( r ) { return r.supplier_count > 1; } );
+			var single = rows.filter( function ( r ) { return r.supplier_count < 2; } );
+
+			var head = el( 'p', 'gtc-compare__head' );
+			head.textContent = multi.length
+				? 'Price comparison · same property, ' + group.provider_count + ' ' + cfg.i18n.suppliers
+				: 'Rates from ' + providerLabel( group.best.provider_id );
+			box.appendChild( head );
+
+			if ( multi.length ) {
+				box.appendChild( el( 'p', 'gtc-compare__note',
+					'Each block compares the same board basis and cancellation terms across suppliers.' ) );
+			}
+
+			multi.forEach( function ( row ) {
+				box.appendChild( classBlock( row, data ) );
+			} );
+
+			if ( ! single.length ) {
+				return box;
+			}
+
+			// Single-supplier classes still need to be reachable — they are
+			// often the cheapest rate on the card — but they must not sit in
+			// the comparison as if something had been compared.
+			if ( ! multi.length ) {
+				single.forEach( function ( row ) {
+					box.appendChild( classBlock( row, data ) );
+				} );
+				return box;
+			}
+
+			var extra = el( 'div', 'gtc-compare__extra' );
+			extra.hidden = true;
+
+			single.forEach( function ( row ) {
+				extra.appendChild( classBlock( row, data ) );
+			} );
+
+			var count = single.reduce( function ( n, r ) { return n + r.offers.length; }, 0 );
+
+			var toggle = el( 'button', 'gtc-compare__toggle',
+				'Show ' + count + ' more rate' + ( count === 1 ? '' : 's' ) + ' from one supplier only' );
+			toggle.type = 'button';
+			toggle.setAttribute( 'aria-expanded', 'false' );
+			toggle.addEventListener( 'click', function () {
+				var open = extra.hidden;
+				extra.hidden = ! open;
+				toggle.setAttribute( 'aria-expanded', open ? 'true' : 'false' );
+				toggle.textContent = open
+					? 'Hide these rates'
+					: 'Show ' + count + ' more rate' + ( count === 1 ? '' : 's' ) + ' from one supplier only';
+			} );
+
+			box.appendChild( toggle );
+			box.appendChild( extra );
+
+			return box;
+		}
+
+		function classBlock( row, data ) {
+			var block = el( 'div', 'gtc-class' + ( row.supplier_count > 1 ? ' is-compared' : '' ) );
+
+			var head = el( 'div', 'gtc-class__head' );
+			head.appendChild( el( 'span', 'gtc-class__label', row.label ) );
+
+			if ( row.supplier_count > 1 ) {
+				head.appendChild( el( 'span', 'gtc-class__count',
+					row.supplier_count + ' ' + cfg.i18n.suppliers ) );
+				if ( row.saving > 0 ) {
+					head.appendChild( el( 'span', 'gtc-badge gtc-badge--save',
+						cfg.i18n.youSave + ' ' + money( row.saving, row.offers[ 0 ].price.currency ) ) );
+				}
+			} else {
+				head.appendChild( el( 'span', 'gtc-class__count', '1 supplier' ) );
+			}
+
+			block.appendChild( head );
+
+			var cheapest = row.offers[ 0 ].price.grand_total;
+
+			row.offers.forEach( function ( offer, index ) {
+				block.appendChild( offerRow( offer, data, index === 0 && row.supplier_count > 1, cheapest ) );
+			} );
+
+			return block;
+		}
+
+		function offerRow( offer, data, isCheapest, cheapest ) {
+			var line = el( 'div', 'gtc-offer' + ( isCheapest ? ' is-best' : '' ) );
 
 			var left = el( 'div', 'gtc-offer__detail' );
-			left.appendChild( el( 'span', 'gtc-offer__supplier', offer.provider_id ) );
+			left.appendChild( el( 'span', 'gtc-offer__supplier', providerLabel( offer.provider_id ) ) );
+
+			// The supplier's own room name, not a normalised one. Two suppliers
+			// describe the same room differently and flattening that would hide
+			// a real difference the customer may care about.
 			left.appendChild( el( 'span', 'gtc-offer__room', offer.rate.name ) );
 
-			var tags = el( 'span', 'gtc-offer__tags' );
-			if ( offer.rate.board && offer.rate.board !== 'room_only' ) {
-				tags.appendChild( el( 'span', 'gtc-tag gtc-tag--good', offer.rate.board.replace( /_/g, ' ' ) ) );
-			}
-			tags.appendChild( el( 'span',
-				'gtc-tag ' + ( offer.rate.refundable ? 'gtc-tag--good' : 'gtc-tag--warn' ),
-				offer.rate.refundable ? 'free cancellation' : 'non-refundable' ) );
 			if ( offer.rate.rooms_left > 0 && offer.rate.rooms_left <= 3 ) {
-				tags.appendChild( el( 'span', 'gtc-tag gtc-tag--urgent',
+				left.appendChild( el( 'span', 'gtc-tag gtc-tag--urgent',
 					'only ' + offer.rate.rooms_left + ' left' ) );
 			}
-			left.appendChild( tags );
 
 			line.appendChild( left );
 
 			var right = el( 'div', 'gtc-offer__action' );
-			right.appendChild( el( 'span', 'gtc-offer__price', money( offer.price.total, offer.price.currency ) ) );
 
-			var button = el( 'button', 'gtc-btn gtc-btn--select', cfg.i18n.select );
+			var priceCol = el( 'span', 'gtc-offer__pricecol' );
+			priceCol.appendChild( el( 'span', 'gtc-offer__price', money( offer.price.total, offer.price.currency ) ) );
+
+			var delta = offer.price.grand_total - cheapest;
+
+			if ( isCheapest ) {
+				priceCol.appendChild( el( 'span', 'gtc-offer__delta gtc-offer__delta--best', 'cheapest' ) );
+			} else if ( delta > 0 ) {
+				priceCol.appendChild( el( 'span', 'gtc-offer__delta',
+					'+' + money( delta, offer.price.currency ) ) );
+			}
+
+			right.appendChild( priceCol );
+
+			var button = el( 'button', 'gtc-btn gtc-btn--select' + ( isCheapest ? ' gtc-btn--select-best' : '' ), cfg.i18n.select );
 			button.type = 'button';
 			button.addEventListener( 'click', function () {
 				select( button, data.search_hash, offerKey( offer ) );

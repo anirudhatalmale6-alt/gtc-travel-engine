@@ -38,6 +38,13 @@ abstract class GTC_Provider_Sandbox_Base extends GTC_Provider_Base {
 			'refundable' => false,
 		),
 		array(
+			'code'       => 'STD-FLEX',
+			'name'       => 'Standard Double Room, flexible',
+			'mult'       => 1.12,
+			'board'      => 'room_only',
+			'refundable' => true,
+		),
+		array(
 			'code'       => 'STD-BB',
 			'name'       => 'Standard Double Room with Breakfast',
 			'mult'       => 1.18,

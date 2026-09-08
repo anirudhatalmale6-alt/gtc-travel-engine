@@ -31,10 +31,24 @@ class GTC_Provider_Sandbox_Beta extends GTC_Provider_Sandbox_Base {
 	 */
 	protected $room_types = array(
 		array(
+			'code'       => 'STD-SAVER',
+			'name'       => 'Double Room (saver rate)',
+			'mult'       => 0.96,
+			'board'      => 'room_only',
+			'refundable' => false,
+		),
+		array(
 			'code'       => 'STD',
 			'name'       => 'Double Room',
-			'mult'       => 1.00,
+			'mult'       => 1.09,
 			'board'      => 'room_only',
+			'refundable' => true,
+		),
+		array(
+			'code'       => 'STD-BB',
+			'name'       => 'Double Room with breakfast',
+			'mult'       => 1.24,
+			'board'      => 'breakfast',
 			'refundable' => true,
 		),
 		array(

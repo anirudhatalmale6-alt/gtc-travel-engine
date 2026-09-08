@@ -54,6 +54,36 @@ Two consequences fall out of that, both deliberate:
 
 ---
 
+## The supplier price comparison
+
+Clustering the same hotel is only half of it. Each card then splits its rates
+into **comparable classes** and puts one row per supplier inside each, so the
+customer is looking at supplier A against supplier B *on the same product*.
+
+The class key is **room grade + board basis + cancellation terms** — never the
+raw room name, because suppliers name the same room differently ("Standard
+Double Room" against "Double Room"). Grade is extracted from the name against a
+fixed vocabulary; an unqualified name resolves to *standard*, since that is what
+a supplier lists when it does not qualify the grade.
+
+Grade has to be in the key. Leave it out and a standard room and a superior room
+at the same board basis land in one class, and the engine reports the gap
+between two different rooms as a saving — a real number that means nothing. An
+unrecognised grade splits into its own class: that costs a comparison, but it
+never invents one.
+
+Classes only one supplier quotes are not a comparison, so they fold away behind
+a toggle rather than sitting in the comparison as if something had been
+compared. A single-supplier card carries no saving badge at all.
+
+The headline **Save $X** on a card is the largest gap inside a single
+multi-supplier class. Note that this is *not* the same as the gap between each
+supplier's cheapest rate, and neither figure bounds the other — cheapest-vs-
+cheapest can pair a non-refundable rate against a refundable one. Only the
+like-for-like figure is advertised.
+
+---
+
 ## Duplicate matching
 
 Two suppliers describe the same hotel under two names, two property ids and
@@ -183,8 +213,8 @@ Requires WordPress 6.4+ and PHP 8.0+.
 php wp-cli.phar eval-file tests/engine-check.php --path=site
 ```
 
-34 assertions covering the fan-out, matching, pricing, revalidation, booking
-and audit paths.
+42 assertions covering the fan-out, matching, comparison, pricing,
+revalidation, booking and audit paths.
 
 Every duplicate-matching assertion is **paired** — one case that must merge and
 one that must not. A matcher that merged everything would pass the positives
@@ -195,6 +225,11 @@ alone, so the negative controls are what give the positives their meaning:
   confirms their name similarity alone (0.31) would not have merged them
 - adjacent towers whose names are effectively identical (similarity 1.00) **do
   not** merge, because the suppliers publish different GIATA ids
+
+And on the comparison: a superior room is **never** placed in the same class as
+a standard one, while differently worded base rooms **still** meet — the pair
+that proves the grade axis restricts without disabling. A single-supplier card
+is checked to advertise no saving.
 
 Likewise on the money path: a valid card books; a total the customer never
 accepted is refused and leaves no payment and no reservation; a declined card

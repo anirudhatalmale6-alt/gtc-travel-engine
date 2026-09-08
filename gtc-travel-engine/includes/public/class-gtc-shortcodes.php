@@ -72,6 +72,9 @@ class GTC_Shortcodes {
 				'checkout'   => esc_url_raw( self::page_url( 'checkout_page_id' ) ),
 				'currency'   => gtc()->settings()->get( 'default_currency', 'USD' ),
 				'categories' => GTC_Categories::available(),
+				// Display names, so the comparison names the supplier the
+				// customer would recognise rather than an internal adapter id.
+				'providers'  => $this->provider_labels(),
 				'i18n'       => array(
 					'searching'   => __( 'Searching suppliers…', 'gtc' ),
 					'noResults'   => __( 'No availability found for these dates.', 'gtc' ),
@@ -86,6 +89,19 @@ class GTC_Shortcodes {
 				),
 			)
 		);
+	}
+
+	/**
+	 * @return array<string,string>
+	 */
+	private function provider_labels() {
+		$labels = array();
+
+		foreach ( gtc()->providers()->all() as $id => $provider ) {
+			$labels[ $id ] = $provider->get_label();
+		}
+
+		return $labels;
 	}
 
 	/* ------------------------------------------------------------- search */

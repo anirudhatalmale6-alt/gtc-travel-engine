@@ -430,12 +430,104 @@
 }
 
 .gtc-compare__head {
-	margin: 0 0 8px;
+	margin: 0 0 4px;
 	font-size: 12px;
 	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: .04em;
 	color: var( --gtc-accent-dark );
+}
+
+.gtc-compare__note {
+	margin: 0 0 12px;
+	font-size: 12px;
+	color: var( --gtc-ink-soft );
+}
+
+/* One comparable class: same board basis, same cancellation terms, one row
+   per supplier. */
+.gtc-class {
+	border: 1px solid var( --gtc-line );
+	border-radius: 9px;
+	padding: 10px 12px 8px;
+	margin-bottom: 10px;
+}
+
+.gtc-class.is-compared {
+	border-color: #bcd9d5;
+	background: #fbfdfd;
+}
+
+.gtc-class__head {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 10px;
+	margin-bottom: 8px;
+	padding-bottom: 8px;
+	border-bottom: 1px dashed var( --gtc-line );
+}
+
+.gtc-class__label {
+	font-size: 13px;
+	font-weight: 700;
+}
+
+.gtc-class__count {
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+	color: var( --gtc-ink-soft );
+}
+
+.gtc-class__head .gtc-badge {
+	margin: 0 0 0 auto;
+}
+
+.gtc-compare__toggle {
+	appearance: none;
+	background: transparent;
+	border: 0;
+	padding: 4px 0;
+	font-size: 13px;
+	font-weight: 600;
+	color: var( --gtc-accent );
+	cursor: pointer;
+	text-decoration: underline;
+	text-underline-offset: 3px;
+}
+
+.gtc-compare__extra {
+	margin-top: 10px;
+}
+
+.gtc-offer__pricecol {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-end;
+	line-height: 1.2;
+}
+
+.gtc-offer__delta {
+	font-size: 11px;
+	color: var( --gtc-warn );
+	font-variant-numeric: tabular-nums;
+}
+
+.gtc-offer__delta--best {
+	color: var( --gtc-good );
+	font-weight: 700;
+	text-transform: uppercase;
+	letter-spacing: .04em;
+}
+
+.gtc-btn--select-best {
+	background: var( --gtc-accent );
+	color: #fff;
+}
+
+.gtc-btn--select-best:hover:not( :disabled ) {
+	background: var( --gtc-accent-dark );
 }
 
 .gtc-offer {
@@ -486,15 +578,14 @@
 }
 
 .gtc-offer__supplier {
-	font-size: 11px;
+	font-size: 12px;
 	font-weight: 700;
-	text-transform: uppercase;
-	letter-spacing: .04em;
-	color: var( --gtc-ink-soft );
+	color: var( --gtc-ink );
 	background: var( --gtc-surface );
 	border: 1px solid var( --gtc-line );
 	border-radius: 5px;
-	padding: 2px 7px;
+	padding: 3px 9px;
+	min-width: 150px;
 }
 
 .gtc-offer__room {
